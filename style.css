@@ -1,0 +1,87 @@
+body {
+    font-family: 'Poppins', sans-serif;
+    background: linear-gradient(135deg, #ffe6ee 0%, #ffc0cb 50%, #ffd1dc 100%);
+    min-height: 100vh;
+    overflow-x: hidden;
+    margin: 0;
+    padding: 0;
+}
+
+/* Custom Glassmorphism Effect */
+.glass-card {
+    background: rgba(255, 255, 255, 0.65);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 2px solid rgba(255, 255, 255, 0.8);
+    box-shadow: 0 20px 40px rgba(230, 80, 135, 0.2), inset 0 0 15px rgba(255, 255, 255, 0.9);
+}
+
+/* Pulsing Soft Glow Animation */
+@keyframes pulseGlow {
+    0%, 100% {
+        box-shadow: 0 15px 35px rgba(255, 105, 180, 0.3), 0 0 25px rgba(255, 182, 193, 0.5);
+    }
+    50% {
+        box-shadow: 0 20px 50px rgba(255, 105, 180, 0.55), 0 0 45px rgba(255, 192, 203, 0.8);
+    }
+}
+
+.glow-active {
+    animation: pulseGlow 4s infinite ease-in-out;
+}
+
+/* Canvas Fullscreen background */
+#petalCanvas, #sparkleCanvas {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 10;
+}
+
+#sparkleCanvas {
+    z-index: 20;
+}
+
+/* Custom Scrollbar for Message Box */
+::-webkit-scrollbar {
+    width: 6px;
+}
+::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 10px;
+}
+::-webkit-scrollbar-thumb {
+    background: #ffb6c1;
+    border-radius: 10px;
+}
+
+/* Floating interactive flowers around edges */
+.interactive-flower {
+    transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), filter 0.3s ease;
+    cursor: pointer;
+}
+.interactive-flower:hover {
+    transform: scale(1.3) rotate(20deg);
+    filter: drop-shadow(0 0 12px rgba(255, 105, 180, 0.8));
+}
+
+/* Heart sparkle keyframes */
+@keyframes floatUp {
+    0% {
+        opacity: 1;
+        transform: translateY(0) scale(1) rotate(0deg);
+    }
+    100% {
+        opacity: 0;
+        transform: translateY(-80px) scale(1.4) rotate(25deg);
+    }
+}
+
+.heart-particle {
+    position: absolute;
+    pointer-events: none;
+    animation: floatUp 1.5s ease-out forwards;
+}
