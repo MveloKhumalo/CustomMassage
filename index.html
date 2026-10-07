@@ -149,7 +149,7 @@
         
         <!-- Header Ribbons & Icons -->
         <div class="flex justify-between items-center mb-4">
-            <button id="soundToggle" onclick="toggleAmbience()" class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/70 hover:bg-white text-pink-600 text-xs font-semibold shadow-sm transition-all transform active:scale-95" title="Toggle Chill Ambient Chimes">
+            <button id="soundToggle" onclick="toggleMusic()" class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/70 hover:bg-white text-pink-600 text-xs font-semibold shadow-sm transition-all transform active:scale-95" title="Play or pause the song" aria-label="Play or pause the song" aria-pressed="false">
                 <i id="soundIcon" class="fa-solid fa-volume-xmark"></i>
                 <span id="soundText">Sound Off</span>
             </button>
@@ -164,6 +164,16 @@
             </button>
             -->
         </div>
+
+        <!-- YouTube player appears after Sound Off is clicked. -->
+        <section id="musicPanel" class="hidden mb-5 p-3 bg-white/60 rounded-2xl border border-pink-100 shadow-inner" aria-label="Song player">
+            <div class="flex items-center justify-between gap-2 mb-2 text-xs text-pink-700">
+                <span class="font-semibold"><i class="fa-solid fa-music mr-1"></i> Your song</span>
+                <a href="https://music.youtube.com/watch?v=hfgqRzhPROg" target="_blank" rel="noopener noreferrer" class="underline hover:text-pink-900">Open in YouTube Music ↗</a>
+            </div>
+            <div id="youtube-player" class="w-full overflow-hidden rounded-xl bg-pink-100" style="min-height: 210px;"></div>
+            <p id="musicStatus" class="mt-2 text-xs text-pink-700" role="status">Loading the song…</p>
+        </section>
 
         <!-- Decorative Card Header -->
         <div class="mb-2">
@@ -321,74 +331,108 @@
                 showToast("Custom note applied! ✨");
             }
         }
+        
+        /* YouTube IFrame API: play the linked song instead of ambient chimes. */
+        const MUSIC_VIDEO_ID = 'hfgqRzhPROg';
+        let musicPlayer = null;
+        let playerReady = false;
+        let youtubeApiReady = false;
+        let wantsMusic = false;
 
-        /* Web Audio API Sound Ambience / Effects */
-        let audioCtx = null;
-        let isSoundOn = false;
-        let chimeInterval = null;
+        const musicPanel = document.getElementById('musicPanel');
+        const musicStatus = document.getElementById('musicStatus');
+        const soundToggle = document.getElementById('soundToggle');
+        const soundIcon = document.getElementById('soundIcon');
+        const soundText = document.getElementById('soundText');
 
-        function toggleAmbience() {
-            if (!audioCtx) {
-                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            }
+        function setSoundButton(state) {
+            const playing = state === 'playing';
+            soundIcon.className = playing ? 'fa-solid fa-volume-high' : 'fa-solid fa-volume-xmark';
+            soundText.textContent = state === 'loading' ? 'Loading…' : playing ? 'Sound On' : 'Sound Off';
+            soundToggle.setAttribute('aria-pressed', String(playing));
+        }
 
-            isSoundOn = !isSoundOn;
-            const icon = document.getElementById('soundIcon');
-            const label = document.getElementById('soundText');
+        function onYouTubeIframeAPIReady() {
+            youtubeApiReady = true;
+            if (wantsMusic) initializeSongPlayer();
+        }
 
-            if (isSoundOn) {
-                if (audioCtx.state === 'suspended') {
-                    audioCtx.resume();
+        function initializeSongPlayer() {
+            if (musicPlayer || !youtubeApiReady) return;
+
+            musicPlayer = new YT.Player('youtube-player', {
+                height: '220',
+                width: '100%',
+                videoId: MUSIC_VIDEO_ID,
+                playerVars: {
+                    autoplay: 1,  // Player is only created after a deliberate button click.
+                    playsinline: 1,
+                    controls: 1,
+                    rel: 0
+                },
+                events: {
+                    onReady: (event) => {
+                        playerReady = true;
+                        if (wantsMusic) {
+                            event.target.unMute();
+                            event.target.playVideo();
+                            musicStatus.textContent = 'If playback does not start, press Play in the video above.';
+                        }
+                    },
+                    onStateChange: (event) => {
+                        if (event.data === YT.PlayerState.PLAYING) {
+                            wantsMusic = true;
+                            musicPanel.classList.remove('hidden');
+                            setSoundButton('playing');
+                            musicStatus.textContent = 'Music playing 💕';
+                        } else if (event.data === YT.PlayerState.PAUSED || event.data === YT.PlayerState.ENDED) {
+                            wantsMusic = false;
+                            setSoundButton('off');
+                            musicStatus.textContent = 'Paused — press Play or Sound Off to continue.';
+                        }
+                    },
+                    onError: () => {
+                        wantsMusic = false;
+                        setSoundButton('off');
+                        musicStatus.textContent = 'This video cannot be played here. Use “Open in YouTube Music” above.';
+                        showToast('Please open the song in YouTube Music.');
+                    }
                 }
-                icon.className = "fa-solid fa-volume-high";
-                label.textContent = "Sound On";
-                startAmbientChimes();
-                playChimeNote(523.25); // C5 accent
-                showToast("Soft chime ambience enabled ✨");
+            });
+        }
+
+        function toggleMusic() {
+            if (wantsMusic) {
+                wantsMusic = false;
+                if (playerReady) musicPlayer.pauseVideo();
+                musicPanel.classList.add('hidden');
+                setSoundButton('off');
             } else {
-                icon.className = "fa-solid fa-volume-xmark";
-                label.textContent = "Sound Off";
-                stopAmbientChimes();
+                wantsMusic = true;
+                musicPanel.classList.remove('hidden');
+                setSoundButton('loading');
+                musicStatus.textContent = 'Loading the song…';
+
+                if (playerReady) {
+                    musicPlayer.unMute();
+                    musicPlayer.playVideo();
+                } else if (youtubeApiReady) {
+                    initializeSongPlayer();
+                }
             }
         }
 
-        function playChimeNote(freq) {
-            if (!audioCtx || !isSoundOn) return;
-
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
-
-            gain.gain.setValueAtTime(0, audioCtx.currentTime);
-            gain.gain.linearRampToValueAtTime(0.08, audioCtx.currentTime + 0.1);
-            gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 2.5);
-
-            osc.connect(gain);
-            gain.connect(audioCtx.destination);
-
-            osc.start();
-            osc.stop(audioCtx.currentTime + 2.6);
-        }
-
-        function startAmbientChimes() {
-            const pentatonicScale = [523.25, 587.33, 659.25, 783.99, 880.00, 1046.50];
-            chimeInterval = setInterval(() => {
-                if (Math.random() > 0.3) {
-                    const randomNote = pentatonicScale[Math.floor(Math.random() * pentatonicScale.length)];
-                    playChimeNote(randomNote);
-                }
-            }, 1800);
-        }
-
-        function stopAmbientChimes() {
-            if (chimeInterval) clearInterval(chimeInterval);
-        }
+        // Load the API in advance, but do not autoplay until Sound Off is clicked.
+        const youtubeScript = document.createElement('script');
+        youtubeScript.src = 'https://www.youtube.com/iframe_api';
+        youtubeScript.onerror = () => {
+            setSoundButton('off');
+            musicStatus.textContent = 'Could not load YouTube. Use the YouTube Music link above.';
+        };
+        document.head.appendChild(youtubeScript);
 
         /* Heart Burst Physics Effect on Click */
         function burstHearts(e) {
-            playChimeNote(880); // High chime on click
             const rect = e.target.getBoundingClientRect();
             const centerX = rect.left + rect.width / 2;
             const centerY = rect.top + rect.height / 2;
